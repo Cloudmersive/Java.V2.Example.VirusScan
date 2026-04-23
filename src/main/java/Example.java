@@ -1,34 +1,37 @@
 // Import classes:
-import java.io.File;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
-import org.openapitools.client.ApiClient;
-import org.openapitools.client.ApiException;
-import org.openapitools.client.Configuration;
-import org.openapitools.client.auth.ApiKeyAuth;
-import org.openapitools.client.api.ScanApi;
-import org.openapitools.client.models.VirusScanAdvancedResult;
+import com.cloudmersive.virusscan.ApiClient;
+import com.cloudmersive.virusscan.ApiException;
+import com.cloudmersive.virusscan.Configuration;
+import com.cloudmersive.virusscan.api.ScanApi;
+import com.cloudmersive.virusscan.model.VirusScanAdvancedResult;
 
 public class Example {
-  public static void main(String[] args) {
+  public static void main(String[] args) throws Exception {
     // --- replace with your API key and input path ---
     String apiKey = System.getenv().getOrDefault("CLOUDMERSIVE_API_KEY", "YOUR API KEY");
     String pathToFile = (args.length > 0) ? args[0] : "C:/path/to/file"; // or /path/to/file on Linux/macOS
 
     ApiClient defaultClient = Configuration.getDefaultApiClient();
-    defaultClient.setBasePath("https://api.cloudmersive.com");
 
-    // Configure API key authorization: Apikey
-    ApiKeyAuth Apikey = (ApiKeyAuth) defaultClient.getAuthentication("Apikey");
-    Apikey.setApiKey(apiKey);
-    // Apikey.setApiKeyPrefix("Token"); // uncomment if you need a prefix
+    // Send the Cloudmersive API key on every request via a request interceptor
+    // (the openapi-generator "native" library does not generate ApiKeyAuth).
+    final String apiKeyValue = apiKey;
+    defaultClient.setRequestInterceptor(builder -> builder.header("Apikey", apiKeyValue));
 
     ScanApi apiInstance = new ScanApi(defaultClient);
 
-    File inputFile = new File(pathToFile); // Input file to scan
-    String fileName = inputFile.getName(); // Optional override of original file name
+    // Read the file fully into memory and wrap it in an InputStream.
+    Path inputPath = Paths.get(pathToFile);
+    byte[] fileBytes = Files.readAllBytes(inputPath);
+    String fileName = inputPath.getFileName().toString();
 
     // NOTE: For safer defaults, you typically want these set to FALSE.
-    // The sample below mirrors your example signatures (Boolean objects).
     Boolean allowExecutables = false;
     Boolean allowInvalidFiles = false;
     Boolean allowScripts = false;
@@ -45,9 +48,9 @@ public class Example {
     String options = ""; // e.g. "permitAuthenticodeSignedExecutables"
     String restrictFileTypes = ""; // e.g. ".pdf,.docx,.png"
 
-    try {
+    try (InputStream inputStream = new ByteArrayInputStream(fileBytes)) {
       VirusScanAdvancedResult result = apiInstance.scanFileAdvanced(
-          inputFile,
+          inputStream,
           fileName,
           allowExecutables,
           allowInvalidFiles,
